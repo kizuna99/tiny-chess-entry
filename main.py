@@ -1,16 +1,19 @@
-import json,os,sys,urllib.request as U
+import json,os,sys,http.client as H
 E=os.environ.get("MAKEFUN_ENV_URL") or sys.exit(1)
+h=(H.HTTPSConnection if E.startswith("https:") else H.HTTPConnection)(E.split("://")[-1].rstrip("/"))
 V={"p":1,"n":3,"b":3,"r":5,"q":9,"k":100}
 B={
-"semi-slav":("depth-2","white","d1c2 b8d7 c1d2 e6e5 c4d5 c6d5 c3b5 e8e7 b5c7 d7b6 d4e5 f6e4 g1f3 e4d2 c2c5 e7d7 f1b5"),
+"semi-slav":("depth-2","white","c4c5 b8d7 g1f3 f6e4 c3e4 d5e4 f3d2 f7f5 f1c4 e6e5 d1b3 b7b5 c4f7 e8e7 b3e6"),
 "sicilian-najdorf":("depth-3","black","f1b5 b8c6 d4c6 b7c6 b5c6 c8d7 c6a8 e7e6 a8b7 d8b6 e4e5 d6d5 b7a8 f8c5 e5f6 d7b5 f6g7 c5f2 e1d2 b6d4"),
 "italian-game":("depth-4","white","f3h4 f6e4 h4f5 e4f2 d1f3 f2h1 f5g7 e8e7 f3f7 e7d6 g7f5"),
 "ruy-lopez-berlin":("nodes-100k","black","f1e1 e4d6 f3e5 f8e7 e5c6 d7c6 b5e2 d6f5 c2c3 e7d6 g2g4 e8f8 g4f5 d8g5 g1f1 g5f5 d2d4 f5h3 f1g1 h3h2 g1f1 h2h1"),
 "slav-defence":("nodes-250k","white","g2g3 b7b5 d1c2 c8e6 f3g5 d8d4 f1g2 f6d5 a2a4 b5a4 e1g1 e6g4 c3d5 c6d5 c1d2 g4e2 d2a5 e2f1 c2f5 d4g4 f5f7 e8d7 f7d5 d7c8 d5d8"),
 "philidor-defence":("nodes-500k","black","c1e3 h7h5 f1c4 f8e7 e1g1 h5h4 g2g3 d7b6 c4d3 h4g3 h2g3 d8d7 d4e5 d7h3 f3h4 c8g4 d1e1 g4f3 d3b5 e8d8 h4f3 h3h1")}
 def P(p,b):
- r=U.Request(E+p,data=json.dumps(b).encode(),headers={"content-type":"application/json"})
- with U.urlopen(r) as x:return json.load(x)
+ h.request("POST",p,json.dumps(b),{"content-type":"application/json"})
+ r=h.getresponse();d=json.loads(r.read())
+ if r.status!=200:raise RuntimeError(r.status,d)
+ return d
 def W(f):
  d={}
  for i,r in enumerate(f.split()[0].split("/")):
@@ -78,10 +81,8 @@ while 1:
  g=P("/game",{})
  if g["status"]=="done":break
  b=B.get(g["opening"]["id"]);G=g["moves"][8:]
+ q=b[2].split() if b and b[0]==g["opponent"] and b[1]==g["colour"] else []
  while g["status"]=="your_move":
-  m=None
-  if b and b[0]==g["opponent"] and b[1]==g["colour"]:
-   q=b[2].split()
-   if G==q[:len(G)] and len(G)<len(q) and q[len(G)] in g["legal_moves"]:m=q[len(G)]
-  if m is None:m=C(g["fen"],g["legal_moves"],g["colour"]=="white")
+  n=len(G)
+  m=q[n] if n<len(q) and G==q[:n] and q[n] in g["legal_moves"] else C(g["fen"],g["legal_moves"],g["colour"]=="white")
   g=P("/move",{"game":g["game"],"move":m});G=g["moves"][8:]
